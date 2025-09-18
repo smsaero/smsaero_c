@@ -5,7 +5,6 @@ docker
 VERSIONS.md
 AUTHORS.md
 *.log
-Makefile
 .pre-commit-config.yaml
 .gitignore
 .gitattributes

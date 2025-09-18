@@ -25,6 +25,7 @@ int main() {
         return EXIT_FAILURE;
     }
 
+    // Send SMS message
     SmsAeroError *error = NULL;
     cJSON *result = send_sms(sms_aero, "70000000000", "Hello, world!", NULL, NULL, &error);
     if (error) {
@@ -35,6 +36,18 @@ int main() {
         printf("%s\n", result_str);
         free(result_str);
         cJSON_Delete(result);
+    }
+
+    // Send Telegram code
+    cJSON *telegram_result = send_telegram(sms_aero, "70000000000", 1234, "SMS Aero", "Your code 1234", &error);
+    if (error) {
+        fprintf(stderr, "SmsAero telegram error: %s\n", error->message);
+        free_error(error);
+    } else {
+        char *telegram_result_str = cJSON_Print(telegram_result);
+        printf("Telegram result: %s\n", telegram_result_str);
+        free(telegram_result_str);
+        cJSON_Delete(telegram_result);
     }
 
     cleanup_sms_aero(sms_aero);
@@ -65,7 +78,7 @@ make
 SMSAERO_EMAIL="your email"
 SMSAERO_API_KEY="your api key"
 
-./bin/demo -u "$SMSAERO_EMAIL" -t "$SMSAERO_API_KEY" -n 70000000000 -m 'Hello, World!' | jq .
+./bin/demo -e "$SMSAERO_EMAIL" -t "$SMSAERO_API_KEY" -n 70000000000 -m 'Hello, World!' | jq .
 ```
 
 ## Run on Docker:

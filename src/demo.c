@@ -1,9 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
 
 #include "smsaero.h"
 
+#define MAX_ARG_LENGTH 1024
 
 void print_help() {
     printf("Help:\n"
@@ -15,11 +17,29 @@ void print_help() {
 }
 
 int validate_args(const char *user_email, const char *auth_token, const char *to_number, const char *message) {
-    return user_email && auth_token && to_number && message;
+    if (!user_email || !auth_token || !to_number || !message) {
+        return 0;
+    }
+
+    if (strlen(user_email) >= MAX_ARG_LENGTH ||
+        strlen(auth_token) >= MAX_ARG_LENGTH ||
+        strlen(to_number) >= MAX_ARG_LENGTH ||
+        strlen(message) >= MAX_ARG_LENGTH) {
+        fprintf(stderr, "Argument length exceeds maximum allowed size\n");
+        return 0;
+    }
+
+    if (!strchr(user_email, '@')) {
+        fprintf(stderr, "Invalid email format\n");
+        return 0;
+    }
+
+    return 1;
 }
 
 int main(int argc, char *argv[]) {
-    char *user_email = NULL, *auth_token = NULL, *message = NULL, *to_number = NULL;
+    const char *user_email = NULL, *auth_token = NULL, *message = NULL, *to_number = NULL;
+    int exit_code = EXIT_SUCCESS;
 
     int opt;
     while ((opt = getopt(argc, argv, "e:t:n:m:h")) != -1) {
@@ -36,7 +56,6 @@ int main(int argc, char *argv[]) {
             case 'm':
                 message = optarg;
                 break;
-            case 'h':
             default:
                 print_help();
                 return EXIT_FAILURE;
@@ -45,13 +64,15 @@ int main(int argc, char *argv[]) {
 
     if (!validate_args(user_email, auth_token, to_number, message)) {
         fprintf(stderr, "Missing required arguments. Use -h for help.\n");
-        return EXIT_FAILURE;
+        exit_code = EXIT_FAILURE;
+        goto cleanup;
     }
 
     SmsAero *sms_aero = init_sms_aero(user_email, auth_token, NULL);
     if (sms_aero == NULL) {
         fprintf(stderr, "Failed to initialize SmsAero\n");
-        return EXIT_FAILURE;
+        exit_code = EXIT_FAILURE;
+        goto cleanup;
     }
 
     SmsAeroError *error = NULL;
@@ -59,13 +80,20 @@ int main(int argc, char *argv[]) {
     if (error) {
         fprintf(stderr, "SmsAero error: %s\n", error->message);
         free_error(error);
+        exit_code = EXIT_FAILURE;
     } else if (result) {
         char *result_str = cJSON_Print(result);
-        printf("%s\n", result_str);
-        free(result_str);
+        if (result_str) {
+            printf("%s\n", result_str);
+            free(result_str);
+        } else {
+            fprintf(stderr, "Failed to print JSON result\n");
+            exit_code = EXIT_FAILURE;
+        }
     }
     cJSON_Delete(result);
-
     cleanup_sms_aero(sms_aero);
-    return EXIT_SUCCESS;
+
+cleanup:
+    return exit_code;
 }

@@ -74,4 +74,8 @@ cJSON *viber_list(const SmsAero *sms_aero, int page);
 
 cJSON *viber_statistics(const SmsAero *sms_aero, int sending_id, int page);
 
+cJSON *send_telegram(const SmsAero *sms_aero, const char *number, int code, const char *sign, const char *text, SmsAeroError **error);
+
+cJSON *telegram_status(const SmsAero *sms_aero, int telegram_id);
+
 #endif // SMSAERO_H

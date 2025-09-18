@@ -5,6 +5,8 @@
 #include <curl/curl.h>
 #include <time.h>
 
+#define MAX_RESPONSE_SIZE (10 * 1024 * 1024)
+#define API_BASE_URL "https://gate.smsaero.ru/v2/"
 
 SmsAeroError *create_error(const char *message) {
     SmsAeroError *error = malloc(sizeof(SmsAeroError));
@@ -23,12 +25,23 @@ void free_error(SmsAeroError *error) {
 
 SmsAero *init_sms_aero(const char *email, const char *api_key, const char *signature) {
     SmsAero *sms_aero = malloc(sizeof(SmsAero));
-    if (sms_aero != NULL) {
-        sms_aero->email = strdup(email);
-        sms_aero->api_key = strdup(api_key);
-        sms_aero->signature = strdup(signature ? signature : "Sms Aero");
-        curl_global_init(CURL_GLOBAL_DEFAULT);
+    if (sms_aero == NULL) return NULL;
+
+    sms_aero->email = strdup(email);
+    if (sms_aero->email == NULL) {
+        free(sms_aero);
+        return NULL;
     }
+
+    sms_aero->api_key = strdup(api_key);
+    if (sms_aero->api_key == NULL) {
+        free(sms_aero->email);
+        free(sms_aero);
+        return NULL;
+    }
+
+    sms_aero->signature = strdup(signature ? signature : "Sms Aero");
+    curl_global_init(CURL_GLOBAL_DEFAULT);
     return sms_aero;
 }
 
@@ -46,7 +59,12 @@ static size_t WriteCallback(const void *contents, const size_t size, const size_
     const size_t realSize = size * nmemb;
     char **response = (char **) userp;
 
-    char *ptr = realloc(*response, strlen(*response) + realSize + 1);
+    size_t newSize = strlen(*response) + realSize + 1;
+    if (newSize > MAX_RESPONSE_SIZE) {
+        return 0;
+    }
+
+    char *ptr = realloc(*response, newSize);
     if (ptr == NULL) {
         printf("Not enough memory (realloc returned NULL)\n");
         return 0;
@@ -68,7 +86,10 @@ cJSON *request(const SmsAero *sms_aero, const char *selector, const cJSON *data,
 
     if (curl) {
         char url[256];
-        snprintf(url, sizeof(url), "https://gate.smsaero.ru/v2/%s", selector);
+        size_t written = snprintf(url, sizeof(url), "https://gate.smsaero.ru/v2/%s", selector);
+        if (written >= sizeof(url)) {
+            return NULL;
+        }
 
         if (page >= 0) {
             char pageQuery[64];
@@ -95,12 +116,25 @@ cJSON *request(const SmsAero *sms_aero, const char *selector, const cJSON *data,
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&response);
 
-        CURLcode res = curl_easy_perform(curl);
+        const CURLcode res = curl_easy_perform(curl);
 
         if (res != CURLE_OK) {
             fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
+            free(response);
+            curl_slist_free_all(headers);
+            free(dataString);
+            curl_easy_cleanup(curl);
+            return NULL;
         } else {
             jsonResponse = cJSON_Parse(response);
+            if (jsonResponse == NULL) {
+                const char *error_ptr = cJSON_GetErrorPtr();
+                if (error_ptr != NULL) {
+                    fprintf(stderr, "Error parsing JSON: %s\n", error_ptr);
+                }
+                free(response);
+                return NULL;
+            }
         }
 
         curl_slist_free_all(headers);
@@ -203,9 +237,9 @@ cJSON *group_add(const SmsAero *sms_aero, const char *name) {
 bool group_delete(const SmsAero *sms_aero, const int group_id) {
     cJSON *data = cJSON_CreateObject();
     cJSON_AddNumberToObject(data, "id", group_id);
-    cJSON *response = request(sms_aero, "group/delete", data, -1);
+    const cJSON *response = request(sms_aero, "group/delete", data, -1);
     cJSON_Delete(data);
-    cJSON *successItem = cJSON_GetObjectItemCaseSensitive(response, "success");
+    const cJSON *successItem = cJSON_GetObjectItemCaseSensitive(response, "success");
     if (successItem != NULL && cJSON_IsBool(successItem)) {
         return cJSON_IsTrue(successItem);
     }
@@ -213,8 +247,8 @@ bool group_delete(const SmsAero *sms_aero, const int group_id) {
 }
 
 bool group_delete_all(const SmsAero *sms_aero) {
-    cJSON *response = request(sms_aero, "group/delete-all", NULL, -1);
-    cJSON *successItem = cJSON_GetObjectItemCaseSensitive(response, "success");
+    const cJSON *response = request(sms_aero, "group/delete-all", NULL, -1);
+    const cJSON *successItem = cJSON_GetObjectItemCaseSensitive(response, "success");
     if (successItem != NULL && cJSON_IsBool(successItem)) {
         return cJSON_IsTrue(successItem);
     }
@@ -242,9 +276,9 @@ cJSON *contact_add(const SmsAero *sms_aero, const char *number, const int group_
 bool contact_delete(const SmsAero *sms_aero, const int contact_id) {
     cJSON *data = cJSON_CreateObject();
     cJSON_AddNumberToObject(data, "id", contact_id);
-    cJSON *response = request(sms_aero, "contact/delete", data, -1);
+    const cJSON *response = request(sms_aero, "contact/delete", data, -1);
     cJSON_Delete(data);
-    cJSON *successItem = cJSON_GetObjectItemCaseSensitive(response, "success");
+    const cJSON *successItem = cJSON_GetObjectItemCaseSensitive(response, "success");
     if (successItem != NULL && cJSON_IsBool(successItem)) {
         return cJSON_IsTrue(successItem);
     }
@@ -252,8 +286,8 @@ bool contact_delete(const SmsAero *sms_aero, const int contact_id) {
 }
 
 bool contact_delete_all(const SmsAero *sms_aero) {
-    cJSON *response = request(sms_aero, "contact/delete-all", NULL, -1);
-    cJSON *successItem = cJSON_GetObjectItemCaseSensitive(response, "success");
+    const cJSON *response = request(sms_aero, "contact/delete-all", NULL, -1);
+    const cJSON *successItem = cJSON_GetObjectItemCaseSensitive(response, "success");
     if (successItem != NULL && cJSON_IsBool(successItem)) {
         return cJSON_IsTrue(successItem);
     }
@@ -356,6 +390,31 @@ cJSON *viber_statistics(const SmsAero *sms_aero, const int sending_id, const int
     cJSON *data = cJSON_CreateObject();
     cJSON_AddNumberToObject(data, "sendingId", sending_id);
     cJSON *response = request(sms_aero, "viber/statistic", data, page);
+    cJSON_Delete(data);
+    return response;
+}
+
+cJSON *send_telegram(const SmsAero *sms_aero, const char *number, const int code, const char *sign, const char *text, SmsAeroError **error) {
+    cJSON *data = cJSON_CreateObject();
+    fill_nums(data, number);
+    cJSON_AddNumberToObject(data, "code", code);
+
+    if (sign) {
+        cJSON_AddStringToObject(data, "sign", sign);
+    }
+    if (text) {
+        cJSON_AddStringToObject(data, "text", text);
+    }
+
+    cJSON *response = request(sms_aero, "telegram/send", data, -1);
+    cJSON_Delete(data);
+    return response;
+}
+
+cJSON *telegram_status(const SmsAero *sms_aero, const int telegram_id) {
+    cJSON *data = cJSON_CreateObject();
+    cJSON_AddNumberToObject(data, "id", telegram_id);
+    cJSON *response = request(sms_aero, "telegram/status", data, -1);
     cJSON_Delete(data);
     return response;
 }
