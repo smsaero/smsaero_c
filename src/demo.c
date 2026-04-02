@@ -7,7 +7,7 @@
 
 #define MAX_ARG_LENGTH 1024
 
-void print_help() {
+static void print_help(void) {
     printf("Help:\n"
         "-e: Email\t\t(ex: -e 'user@local.host')\n"
         "-t: Auth Token\t\t(ex: -t 'your_token')\n"
@@ -16,7 +16,7 @@ void print_help() {
         "-h: This help dialog\n");
 }
 
-int validate_args(const char *user_email, const char *auth_token, const char *to_number, const char *message) {
+static int validate_args(const char *user_email, const char *auth_token, const char *to_number, const char *message) {
     if (!user_email || !auth_token || !to_number || !message) {
         return 0;
     }

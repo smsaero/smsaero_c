@@ -6,5 +6,5 @@
 
 ## Special Thanks
 
-- Company SmsAero for providing resources
+- Company SMSAero for providing resources
 - All the users who reported bugs and provided feedback

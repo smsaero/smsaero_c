@@ -78,4 +78,10 @@ cJSON *send_telegram(const SmsAero *sms_aero, const char *number, int code, cons
 
 cJSON *telegram_status(const SmsAero *sms_aero, int telegram_id);
 
+cJSON *send_mobile_id(const SmsAero *sms_aero, const char *number, const char *sign, const char *callback_url, SmsAeroError **error);
+
+cJSON *mobile_id_status(const SmsAero *sms_aero, const int req_id, SmsAeroError **error);
+
+cJSON *verify_mobile_id(const SmsAero *sms_aero, const int req_id, const char *code, const char *sign, SmsAeroError **error);
+
 #endif // SMSAERO_H

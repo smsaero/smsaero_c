@@ -1,8 +1,8 @@
-# SmsAero C Api client
+# SMSAero C Api client
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Library for sending SMS messages using the SmsAero API. Written in C.
+Library for sending SMS messages using the SMSAero API. Written in C.
 
 ## Usage example:
 
@@ -21,7 +21,7 @@ Get credentials from account settings page: https://smsaero.ru/cabinet/settings/
 int main() {
     SmsAero *sms_aero = init_sms_aero(SMSAERO_EMAIL, SMSAERO_API_KEY, NULL);
     if (sms_aero == NULL) {
-        fprintf(stderr, "Failed to initialize SmsAero\n");
+        fprintf(stderr, "Failed to initialize SMSAero\n");
         return EXIT_FAILURE;
     }
 
@@ -29,7 +29,7 @@ int main() {
     SmsAeroError *error = NULL;
     cJSON *result = send_sms(sms_aero, "70000000000", "Hello, world!", NULL, NULL, &error);
     if (error) {
-        fprintf(stderr, "SmsAero error: %s\n", error->message);
+        fprintf(stderr, "SMSAero error: %s\n", error->message);
         free_error(error);
     } else {
         char *result_str = cJSON_Print(result);
@@ -41,7 +41,7 @@ int main() {
     // Send Telegram code
     cJSON *telegram_result = send_telegram(sms_aero, "70000000000", 1234, "SMS Aero", "Your code 1234", &error);
     if (error) {
-        fprintf(stderr, "SmsAero telegram error: %s\n", error->message);
+        fprintf(stderr, "SMSAero telegram error: %s\n", error->message);
         free_error(error);
     } else {
         char *telegram_result_str = cJSON_Print(telegram_result);
